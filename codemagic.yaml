@@ -1,0 +1,66 @@
+workflows:
+  unsigned-ipa:
+    name: 未签名 IPA（侧载）
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+    cache:
+      cache_paths:
+        - $HOME/Library/Caches/org.swift.swiftpm
+        - $HOME/Library/Developer/Xcode/DerivedData
+
+    scripts:
+      - name: 检查工具链
+        script: |
+          xcodebuild -version
+          swift --version
+          which xcodegen || brew install xcodegen
+          xcodegen --version
+
+      - name: 生成 Xcode 项目
+        working_directory: DaSiuYan
+        script: |
+          xcodegen generate
+          ls -la
+          test -d DaSiuYan.xcodeproj || { echo "xcodeproj not generated"; exit 1; }
+
+      - name: 构建未签名 Archive
+        working_directory: DaSiuYan
+        script: |
+          xcodebuild \
+            -project DaSiuYan.xcodeproj \
+            -scheme DaSiuYan \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$CM_BUILD_DIR/DaSiuYan.xcarchive" \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ENTITLEMENTS_REQUIRED=NO \
+            DEVELOPMENT_TEAM="" \
+            archive
+
+      - name: 打包未签名 IPA
+        script: |
+          ARCHIVE="$CM_BUILD_DIR/DaSiuYan.xcarchive"
+          APP_PATH="$ARCHIVE/Products/Applications/DaSiuYan.app"
+
+          if [ ! -d "$APP_PATH" ]; then
+            echo "App path not found"
+            find "$ARCHIVE" -type d -maxdepth 4 || true
+            exit 1
+          fi
+
+          cd "$CM_BUILD_DIR"
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/
+          zip -qr DaSiuYan-unsigned.ipa Payload
+          rm -rf Payload
+
+          ls -lh DaSiuYan-unsigned.ipa
+          echo "IPA done"
+
+    artifacts:
+      - $CM_BUILD_DIR/DaSiuYan-unsigned.ipa

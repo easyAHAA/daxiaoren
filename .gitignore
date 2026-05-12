@@ -1,0 +1,30 @@
+## macOS
+.DS_Store
+
+## Xcode
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+*.xcworkspace/xcuserdata/
+build/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+xcuserdata/
+
+## Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+## VS Code / Cursor
+.vscode/
+.kiro/
+
+## 本地打包产物
+*.7z
+
+## 旧版本备份（防止误提交旧代码）
+DASIUYAN1.0/
