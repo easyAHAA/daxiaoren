@@ -6,7 +6,6 @@ import PhotosUI
 
 public struct PhotoPickerView: View {
     @Binding var selected: UIImage?
-    @State private var pickerItem: PhotosPickerItem?
 
     public init(selected: Binding<UIImage?>) {
         self._selected = selected
@@ -14,19 +13,7 @@ public struct PhotoPickerView: View {
 
     public var body: some View {
         if #available(iOS 16.0, *) {
-            PhotosPicker(selection: $pickerItem, matching: .images, photoLibrary: .shared()) {
-                pickerLabel
-            }
-            .onChange(of: pickerItem) { newItem in
-                guard let item = newItem else { return }
-                Task {
-                    if let data = try? await item.loadTransferable(type: Data.self),
-                       let image = UIImage(data: data) {
-                        await MainActor.run { selected = image }
-                    }
-                    pickerItem = nil
-                }
-            }
+            ModernPhotoPicker(selected: $selected) { pickerLabel }
         } else {
             LegacyPickerTrigger(selected: $selected) { pickerLabel }
         }
@@ -41,6 +28,29 @@ public struct PhotoPickerView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
         .background(Capsule().fill(.ultraThinMaterial))
+    }
+}
+
+@available(iOS 16.0, *)
+private struct ModernPhotoPicker<Label: View>: View {
+    @Binding var selected: UIImage?
+    @State private var pickerItem: PhotosPickerItem?
+    let label: () -> Label
+
+    var body: some View {
+        PhotosPicker(selection: $pickerItem, matching: .images, photoLibrary: .shared()) {
+            label()
+        }
+        .onChange(of: pickerItem) { newItem in
+            guard let item = newItem else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    await MainActor.run { selected = image }
+                }
+                pickerItem = nil
+            }
+        }
     }
 }
 
