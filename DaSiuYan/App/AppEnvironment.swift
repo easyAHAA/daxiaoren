@@ -1,5 +1,5 @@
 // AppEnvironment.swift
-// 依赖注入容器：服务单例 + 持久化。
+// 依赖注入容器：服务单例 + 持久化 + 子 ObservableObject 变化订阅链。
 
 import Foundation
 import SwiftUI
@@ -62,7 +62,7 @@ public final class AppEnvironment: ObservableObject {
         }
         self.backgroundSystem = BackgroundSystem(initial: initialBG)
 
-        // 应用初始偏好到引擎
+        // 应用初始偏好
         audio.isEnabled = settingsService.settings.soundEnabled
         haptic.isEnabled = settingsService.settings.hapticEnabled
 
@@ -72,6 +72,33 @@ public final class AppEnvironment: ObservableObject {
                 self?.audioEngine.isEnabled = s.soundEnabled
                 self?.hapticEngine.isEnabled = s.hapticEnabled
                 if !s.soundEnabled { self?.audioEngine.stopAll() }
+            }
+            .store(in: &cancellables)
+
+        // ★ 关键修复：订阅子 ObservableObject 的变化，触发自身 objectWillChange
+        // 这样 HomeView 通过 @EnvironmentObject 订阅 env 时，effigyManager / incantationSystem
+        // 的变化会级联触发 UI 刷新（修复纸片人保存后首页需重启才显示的问题）
+        effigyManager.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        incantationSystem.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        backgroundSystem.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        settingsService.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
             }
             .store(in: &cancellables)
     }
